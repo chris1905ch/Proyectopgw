@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oferta de empleo · Vínculo Laboral</title>
+<link rel="stylesheet" href="../css/app.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<div class="centrado ancho" style="max-width:760px">
+  <h1 id="titulo">Publicar oferta</h1>
+  <div id="mensaje"></div>
+  <form id="form" class="tarjeta" novalidate>
+    <div class="campo"><label for="titulo_o">Título del puesto</label><input id="titulo_o" name="titulo" maxlength="80" required></div>
+    <div class="fila">
+      <div class="campo"><label for="departamento">Departamento</label><select id="departamento" name="departamento"></select></div>
+      <div class="campo"><label for="tipo_contrato">Tipo de contrato</label><select id="tipo_contrato" name="tipo_contrato"></select></div>
+    </div>
+    <div class="fila">
+      <div class="campo"><label for="modalidad">Modalidad</label><select id="modalidad" name="modalidad"></select></div>
+      <div class="campo"><label for="nivel_experiencia">Experiencia requerida</label><select id="nivel_experiencia" name="nivel_experiencia"></select></div>
+    </div>
+    <div class="fila">
+      <div class="campo"><label for="salario_min">Salario mínimo (USD)</label><input id="salario_min" name="salario_min" type="number" min="0" step="10"></div>
+      <div class="campo"><label for="salario_max">Salario máximo (USD)</label><input id="salario_max" name="salario_max" type="number" min="0" step="10"></div>
+      <div class="campo"><label for="fecha_cierre">Fecha de cierre (máximo 90 días)</label><input id="fecha_cierre" name="fecha_cierre" type="date"></div>
+    </div>
+    <div class="campo" style="flex-direction:row;align-items:center;gap:8px"><input id="mostrar_salario" name="mostrar_salario" type="checkbox" checked style="width:auto"><label for="mostrar_salario" style="color:inherit">Mostrar el salario en la oferta</label></div>
+    <div class="campo"><label for="descripcion">Descripción</label><textarea id="descripcion" name="descripcion" required></textarea></div>
+    <div class="campo"><label for="requisitos">Requisitos</label><textarea id="requisitos" name="requisitos" required></textarea></div>
+    <div class="campo"><label for="beneficios">Beneficios (opcional)</label><textarea id="beneficios" name="beneficios"></textarea></div>
+    <div class="acciones"><button class="boton">Guardar oferta</button><a class="boton sec" href="/empresa/ofertas.html">Cancelar</a></div>
+  </form>
+</div>
+</main>
+<footer id="pie"></footer>
+<script src="../js/app.js"></script>
+<script>
+
+if (montar({ rol: "empresa", activo: "ofertas" })) (async () => {
+  const form = document.getElementById("form");
+  const id = new URLSearchParams(location.search).get("id");
+  const cat = await catalogos();
+  llenarSelect(form.departamento, cat.departamentos);
+  llenarSelect(form.tipo_contrato, cat.tipos);
+  llenarSelect(form.modalidad, cat.modalidades);
+  llenarSelect(form.nivel_experiencia, cat.niveles);
+  if (id) {
+    document.getElementById("titulo").textContent = "Editar oferta";
+    const o = await api("/empresa/ofertas/" + id);
+    Object.keys(o).forEach((k) => {
+      if (!form.elements[k]) return;
+      if (form.elements[k].type === "checkbox") form.elements[k].checked = o[k];
+      else form.elements[k].value = k === "fecha_cierre" ? String(o[k]).slice(0, 10) : (o[k] ?? "");
+    });
+    form.elements.titulo.value = o.titulo;
+  }
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api(id ? "/empresa/ofertas/" + id : "/empresa/ofertas", { metodo: id ? "PUT" : "POST", cuerpo: datosForm(form) });
+      location.href = "/empresa/ofertas.html?ok=" + (id ? "editada" : "creada");
+    } catch (err) { mostrarError(form, err); }
+  });
+})();
+
+</script>
+</body>
+</html>

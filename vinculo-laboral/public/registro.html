@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crear cuenta · Vínculo Laboral</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<div class="centrado ancho">
+  <h1>Crear cuenta</h1>
+  <div class="pestanas" role="tablist">
+    <button type="button" data-tipo="candidato" class="activo">Soy candidato</button>
+    <button type="button" data-tipo="empresa">Soy una empresa</button>
+  </div>
+  <div id="mensaje"></div>
+  <form id="form" class="tarjeta" novalidate>
+    <div class="fila">
+      <div class="campo"><label for="nombre" id="l-nombre">Nombre</label><input id="nombre" name="nombre" required></div>
+      <div class="campo"><label for="apellidos" id="l-apellidos">Apellidos</label><input id="apellidos" name="apellidos" required></div>
+    </div>
+    <div class="fila">
+      <div class="campo"><label for="correo">Correo electrónico</label><input id="correo" name="correo" type="email" autocomplete="username" required></div>
+      <div class="campo"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" placeholder="0000-0000" inputmode="numeric"></div>
+    </div>
+    <div class="campo"><label for="password">Contraseña (mínimo 8 caracteres)</label><input id="password" name="password" type="password" autocomplete="new-password" required></div>
+    <div id="candidato">
+      <div class="campo"><label for="ubicacion">Departamento donde reside</label><select id="ubicacion" name="ubicacion"></select></div>
+    </div>
+    <div id="empresa" hidden>
+      <div class="campo"><label for="razon_social">Razón social</label><input id="razon_social" name="razon_social"></div>
+      <div class="fila">
+        <div class="campo"><label for="nit">NIT (14 dígitos)</label><input id="nit" name="nit" inputmode="numeric" placeholder="0614-120389-101-1"></div>
+        <div class="campo"><label for="sector">Sector</label><input id="sector" name="sector" placeholder="Comercio, salud, educación…"></div>
+      </div>
+      <div class="fila">
+        <div class="campo"><label for="departamento">Departamento</label><select id="departamento" name="departamento"></select></div>
+        <div class="campo"><label for="sitio_web">Sitio web (opcional)</label><input id="sitio_web" name="sitio_web"></div>
+      </div>
+      <div class="campo"><label for="descripcion">Descripción de la empresa (opcional)</label><textarea id="descripcion" name="descripcion"></textarea></div>
+      <p class="pequeno suave">Administración verificará los datos de la empresa antes de publicar sus ofertas.</p>
+    </div>
+    <button class="boton" style="width:100%">Crear cuenta</button>
+  </form>
+</div>
+</main>
+<footer id="pie"></footer>
+<script src="js/app.js"></script>
+<script>
+
+montar();
+const form = document.getElementById("form");
+let tipo = new URLSearchParams(location.search).get("tipo") === "empresa" ? "empresa" : "candidato";
+function aplicarTipo() {
+  document.querySelectorAll(".pestanas button").forEach((b) => b.classList.toggle("activo", b.dataset.tipo === tipo));
+  document.getElementById("candidato").hidden = tipo !== "candidato";
+  document.getElementById("empresa").hidden = tipo !== "empresa";
+  document.getElementById("l-nombre").textContent = tipo === "empresa" ? "Nombre del contacto" : "Nombre";
+  document.getElementById("l-apellidos").textContent = tipo === "empresa" ? "Apellidos del contacto" : "Apellidos";
+  mensaje("#mensaje", "ok", "");
+}
+document.querySelectorAll(".pestanas button").forEach((b) => b.addEventListener("click", () => { tipo = b.dataset.tipo; aplicarTipo(); }));
+(async () => {
+  const cat = await catalogos();
+  llenarSelect(form.ubicacion, cat.departamentos, "Seleccione (opcional)");
+  llenarSelect(form.departamento, cat.departamentos);
+  aplicarTipo();
+})();
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const d = datosForm(form);
+  if (tipo === "candidato") { delete d.razon_social; delete d.nit; delete d.sector; delete d.sitio_web; delete d.descripcion; delete d.departamento; }
+  else delete d.ubicacion;
+  try {
+    const r = await api("/auth/registro/" + tipo, { metodo: "POST", cuerpo: d });
+    Sesion.guardar(r.token, r.usuario);
+    location.href = RUTAS_ROL[r.usuario.rol];
+  } catch (err) { mostrarError(form, err); }
+});
+
+</script>
+</body>
+</html>

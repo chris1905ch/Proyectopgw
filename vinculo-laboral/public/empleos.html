@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buscar empleo · Vínculo Laboral</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<div class="encabezado-pagina"><h1>Buscar empleo</h1><span id="total" class="suave"></span></div>
+<div class="resultados">
+  <form id="filtros" class="tarjeta">
+    <div class="campo"><label for="q">Puesto, empresa o palabra clave</label><input id="q" name="q"></div>
+    <div class="campo"><label for="departamento">Departamento</label><select id="departamento" name="departamento"></select></div>
+    <div class="campo"><label for="tipo">Tipo de contrato</label><select id="tipo" name="tipo"></select></div>
+    <div class="campo"><label for="modalidad">Modalidad</label><select id="modalidad" name="modalidad"></select></div>
+    <div class="campo"><label for="experiencia">Experiencia</label><select id="experiencia" name="experiencia"></select></div>
+    <div class="campo"><label for="salario_min">Salario mínimo (USD al mes)</label><input id="salario_min" name="salario_min" type="number" min="0" step="50"></div>
+    <button class="boton" style="width:100%">Aplicar filtros</button>
+    <p style="margin:12px 0 0;text-align:center"><a href="/empleos.html" class="pequeno">Quitar filtros</a></p>
+  </form>
+  <div><div id="lista"></div><div id="paginacion" class="paginacion"></div></div>
+</div>
+</main>
+<footer id="pie"></footer>
+<script src="js/app.js"></script>
+<script>
+
+montar({ activo: "empleos" });
+const form = document.getElementById("filtros");
+const params = new URLSearchParams(location.search);
+async function iniciar() {
+  const cat = await catalogos();
+  llenarSelect(form.departamento, cat.departamentos, "Todos");
+  llenarSelect(form.tipo, cat.tipos, "Todos");
+  llenarSelect(form.modalidad, cat.modalidades, "Todas");
+  llenarSelect(form.experiencia, cat.niveles, "Cualquiera");
+  for (const [k, v] of params) if (form.elements[k] && k !== "pagina") form.elements[k].value = v;
+  buscar();
+}
+async function buscar() {
+  const r = await api("/publico/ofertas?" + params.toString());
+  document.getElementById("total").textContent = r.total === 1 ? "1 resultado" : r.total + " resultados";
+  document.getElementById("lista").innerHTML = r.datos.length ? r.datos.map(tarjetaOferta).join("")
+    : `<p class="vacio">No encontramos ofertas con esos criterios. Pruebe quitando algún filtro.</p>`;
+  const pag = document.getElementById("paginacion");
+  pag.innerHTML = "";
+  if (r.paginas > 1) for (let i = 1; i <= r.paginas; i++) {
+    const b = document.createElement("button");
+    b.className = "boton chico " + (i === r.pagina ? "" : "sec");
+    b.textContent = i;
+    b.onclick = () => { params.set("pagina", i); history.replaceState(null, "", "?" + params); buscar(); window.scrollTo(0, 0); };
+    pag.appendChild(b);
+  }
+}
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  params.forEach((_, k) => params.delete(k));
+  Object.entries(datosForm(form)).forEach(([k, v]) => v && params.set(k, v));
+  history.replaceState(null, "", "?" + params);
+  buscar();
+});
+iniciar();
+
+</script>
+</body>
+</html>

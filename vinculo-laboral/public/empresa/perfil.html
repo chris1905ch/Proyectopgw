@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datos de la empresa · Vínculo Laboral</title>
+<link rel="stylesheet" href="../css/app.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<div class="centrado ancho">
+  <h1>Datos de la empresa</h1>
+  <div id="mensaje"></div>
+  <form id="form" class="tarjeta" novalidate>
+    <div class="fila">
+      <div class="campo"><label for="razon_social">Razón social</label><input id="razon_social" name="razon_social" disabled></div>
+      <div class="campo"><label for="nit">NIT</label><input id="nit" name="nit" disabled></div>
+    </div>
+    <p class="pequeno suave">La razón social y el NIT solo los modifica administración.</p>
+    <div class="fila">
+      <div class="campo"><label for="sector">Sector</label><input id="sector" name="sector" required></div>
+      <div class="campo"><label for="departamento">Departamento</label><select id="departamento" name="departamento"></select></div>
+    </div>
+    <div class="campo"><label for="sitio_web">Sitio web</label><input id="sitio_web" name="sitio_web"></div>
+    <div class="campo"><label for="descripcion">Descripción</label><textarea id="descripcion" name="descripcion"></textarea></div>
+    <p>Estado de verificación: <span id="verif"></span></p>
+    <button class="boton">Guardar cambios</button>
+  </form>
+</div>
+</main>
+<footer id="pie"></footer>
+<script src="../js/app.js"></script>
+<script>
+
+if (montar({ rol: "empresa", activo: "perfil" })) (async () => {
+  const form = document.getElementById("form");
+  const cat = await catalogos();
+  llenarSelect(form.departamento, cat.departamentos);
+  const e = await api("/empresa/perfil");
+  Object.keys(e).forEach((k) => { if (form.elements[k]) form.elements[k].value = e[k] ?? ""; });
+  document.getElementById("verif").innerHTML = etiqueta(e.verificacion);
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    try {
+      await api("/empresa/perfil", { metodo: "PUT", cuerpo: datosForm(form) });
+      mensaje("#mensaje", "ok", "Los datos de la empresa se guardaron.");
+    } catch (err) { mostrarError(form, err); }
+  });
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inicio · Vínculo Laboral</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<section class="hero">
+  <div>
+    <p class="sello">Portal de empleo · El Salvador</p>
+    <h1>Encuentre trabajo en su departamento</h1>
+  </div>
+  <p class="nota">Vacantes de empresas verificadas por administración. Cree su perfil, postúlese y siga el estado de cada solicitud desde un solo lugar.</p>
+  <form id="buscar" class="buscador" action="/empleos.html">
+    <input name="q" placeholder="Puesto o palabra clave" aria-label="Puesto o palabra clave">
+    <select name="departamento" id="departamento" aria-label="Departamento"></select>
+    <select name="tipo" id="tipo" aria-label="Tipo de contrato"></select>
+    <button class="boton">Buscar</button>
+  </form>
+</section>
+<section class="kpis" id="cifras"></section>
+<section>
+  <div class="encabezado-pagina"><h2>Empleos recientes</h2><a href="/empleos.html">Ver todos los empleos</a></div>
+  <div id="recientes"></div>
+</section>
+<section class="pasos">
+  <div><b>1</b><h3>Cree su cuenta</h3><p class="suave">Como candidato, con sus datos de contacto. Como empresa, con su NIT para que administración la verifique.</p></div>
+  <div><b>2</b><h3>Busque y postúlese</h3><p class="suave">Filtre por departamento, modalidad, experiencia y salario. Cada oferta muestra requisitos y beneficios completos.</p></div>
+  <div><b>3</b><h3>Siga su solicitud</h3><p class="suave">Las empresas aceptan o rechazan cada postulación, y usted ve el cambio en su panel.</p></div>
+</section>
+<section class="tarjeta" style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+  <div><h3 style="margin-bottom:4px">¿Su empresa está contratando?</h3><span class="suave">Registre la empresa y publique sus vacantes.</span></div>
+  <a class="boton" href="/registro.html?tipo=empresa">Registrar empresa</a>
+</section>
+</main>
+<footer id="pie"></footer>
+<script src="js/app.js"></script>
+<script>
+
+montar({ activo: "" });
+(async () => {
+  const cat = await catalogos();
+  llenarSelect(document.getElementById("departamento"), cat.departamentos, "Todo el país");
+  llenarSelect(document.getElementById("tipo"), cat.tipos, "Cualquier contrato");
+  const r = await api("/publico/resumen");
+  const kpi = (n, t) => `<div class="kpi"><b>${n.toLocaleString("es-SV")}</b><span>${t}</span></div>`;
+  document.getElementById("cifras").innerHTML = kpi(r.ofertas, "ofertas abiertas") + kpi(r.empresas, "empresas verificadas") + kpi(r.candidatos, "candidatos registrados") + kpi(r.postulaciones, "postulaciones enviadas");
+  const o = await api("/publico/ofertas");
+  document.getElementById("recientes").innerHTML = o.datos.length ? o.datos.slice(0, 4).map(tarjetaOferta).join("") : `<p class="vacio">Todavía no hay ofertas publicadas.</p>`;
+})();
+
+</script>
+</body>
+</html>

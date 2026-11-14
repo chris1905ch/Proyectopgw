@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de la empresa · Vínculo Laboral</title>
+<link rel="stylesheet" href="../css/app.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<div class="encabezado-pagina"><h1 id="titulo">Panel de la empresa</h1><a class="boton" href="/empresa/oferta.html">Publicar oferta</a></div>
+<div id="mensaje"></div>
+<div id="aviso"></div>
+<div class="kpis" id="kpis"></div>
+<div class="dos-col">
+  <section class="tarjeta"><h3>Postulaciones por oferta</h3><div id="porOferta"></div></section>
+  <section class="tarjeta"><h3>Decisiones sobre los aplicantes</h3><div id="porEstado"></div></section>
+</div>
+</main>
+<footer id="pie"></footer>
+<script src="../js/app.js"></script>
+<script>
+
+if (montar({ rol: "empresa", activo: "panel" })) (async () => {
+  const d = await api("/empresa/dashboard");
+  const yo = await api("/auth/yo");
+  document.getElementById("titulo").textContent = yo.empresa.razon_social;
+  if (d.verificacion === "pendiente") mensaje("#aviso", "aviso", "Administración aún está verificando su empresa. Mientras tanto sus ofertas quedan pendientes de aprobación.");
+  if (d.verificacion === "rechazada") mensaje("#aviso", "error", "La verificación de la empresa fue rechazada. Comuníquese con administración.");
+  const p = d.postulacionesPorEstado;
+  const total = p.enviada + p.en_revision + p.aceptada + p.rechazada;
+  const k = (n, t) => `<div class="kpi"><b>${n}</b><span>${t}</span></div>`;
+  document.getElementById("kpis").innerHTML = k(d.ofertasPorEstado.activa, "ofertas activas") + k(total, "postulaciones recibidas") + k(p.enviada, "sin revisar") + k(p.aceptada, "aceptadas");
+  const maxOf = Math.max(1, ...d.porOferta.map((o) => o.postulaciones));
+  document.getElementById("porOferta").innerHTML = d.porOferta.length
+    ? d.porOferta.map((o) => `<div class="fila-barra"><a href="/empresa/postulantes.html?oferta=${o.id}">${esc(o.titulo)}</a><div class="barra"><i style="width:${(o.postulaciones / maxOf) * 100}%"></i></div><b>${o.postulaciones}</b></div>`).join("")
+    : `<p class="vacio">Todavía no ha publicado ofertas.</p>`;
+  const filas = [["Sin revisar", p.enviada], ["En revisión", p.en_revision], ["Aceptadas", p.aceptada], ["Rechazadas", p.rechazada]];
+  document.getElementById("porEstado").innerHTML = total
+    ? filas.map(([t, n]) => `<div class="fila-barra"><span>${t}</span><div class="barra"><i style="width:${(n / total) * 100}%"></i></div><b>${n}</b></div>`).join("")
+    : `<p class="vacio">Aún no recibe postulaciones.</p>`;
+})();
+
+</script>
+</body>
+</html>

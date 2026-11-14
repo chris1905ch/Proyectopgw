@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mis ofertas · Vínculo Laboral</title>
+<link rel="stylesheet" href="../css/app.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<div class="encabezado-pagina"><h1>Mis ofertas</h1><a class="boton" href="/empresa/oferta.html">Publicar oferta</a></div>
+<div id="mensaje"></div>
+<div class="tarjeta" id="tabla"></div>
+</main>
+<footer id="pie"></footer>
+<script src="../js/app.js"></script>
+<script>
+
+if (montar({ rol: "empresa", activo: "ofertas" })) {
+  const aviso = new URLSearchParams(location.search).get("ok");
+  if (aviso) mensaje("#mensaje", "ok", aviso === "creada" ? "La oferta se publicó." : "Los cambios se guardaron.");
+  async function cargar() {
+    const filas = await api("/empresa/ofertas");
+    document.getElementById("tabla").innerHTML = filas.length
+      ? `<table><thead><tr><th>Oferta</th><th>Estado</th><th>Cierre</th><th>Aplicantes</th><th>Acciones</th></tr></thead><tbody>${filas.map((o) => `<tr>
+        <td><b>${esc(o.titulo)}</b><br><span class="pequeno suave">${esc(o.departamento)} · ${esc(o.tipo_contrato)}</span></td>
+        <td>${etiqueta(o.estado)}</td><td>${fecha(o.fecha_cierre)}</td>
+        <td><a href="/empresa/postulantes.html?oferta=${o.id}">${o.postulaciones}</a>${o.sin_revisar ? `<span class="pequeno suave"> (${o.sin_revisar} sin revisar)</span>` : ""}</td>
+        <td><div class="acciones">
+          ${o.estado !== "cancelada" ? `<a class="boton sec chico" href="/empresa/oferta.html?id=${o.id}">Editar</a>` : ""}
+          ${o.estado === "activa" || o.estado === "pendiente" ? `<button class="boton sec chico" data-id="${o.id}" data-estado="inactiva">Inactivar</button>` : ""}
+          ${o.estado === "inactiva" ? `<button class="boton sec chico" data-id="${o.id}" data-estado="activa">Activar</button>` : ""}
+          ${o.estado !== "cancelada" ? `<button class="boton peligro chico" data-id="${o.id}" data-estado="cancelada">Cancelar</button>` : ""}
+          <button class="boton peligro chico" data-id="${o.id}" data-eliminar="1">Eliminar</button></div></td></tr>`).join("")}</tbody></table>`
+      : `<p class="vacio">Aún no tiene ofertas. <a href="/empresa/oferta.html">Publicar la primera</a></p>`;
+  }
+  document.getElementById("tabla").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-id]");
+    if (!b) return;
+    try {
+      if (b.dataset.eliminar) {
+        if (!confirm("Al eliminar la oferta también se borran sus postulaciones. ¿Desea continuar?")) return;
+        await api("/empresa/ofertas/" + b.dataset.id, { metodo: "DELETE" });
+        mensaje("#mensaje", "ok", "La oferta fue eliminada.");
+      } else {
+        if (b.dataset.estado === "cancelada" && !confirm("Una oferta cancelada no se puede reabrir. ¿Desea cancelarla?")) return;
+        await api(`/empresa/ofertas/${b.dataset.id}/estado`, { metodo: "PATCH", cuerpo: { estado: b.dataset.estado } });
+        mensaje("#mensaje", "ok", "El estado de la oferta se actualizó.");
+      }
+      cargar();
+    } catch (err) { mensaje("#mensaje", "error", err.message); }
+  });
+  cargar();
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aplicantes · Vínculo Laboral</title>
+<link rel="stylesheet" href="../css/app.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<p class="pequeno"><a href="/empresa/ofertas.html">‹ Volver a mis ofertas</a></p>
+<div class="encabezado-pagina"><h1 id="titulo">Aplicantes</h1><span id="estadoOferta"></span></div>
+<div id="mensaje"></div>
+<div id="lista"></div>
+</main>
+<footer id="pie"></footer>
+<script src="../js/app.js"></script>
+<script>
+
+if (montar({ rol: "empresa", activo: "ofertas" })) {
+  const oferta = new URLSearchParams(location.search).get("oferta");
+  async function cargar() {
+    const r = await api(`/empresa/ofertas/${oferta}/postulaciones`);
+    document.getElementById("titulo").textContent = r.oferta.titulo;
+    document.getElementById("estadoOferta").innerHTML = etiqueta(r.oferta.estado);
+    document.getElementById("lista").innerHTML = r.postulaciones.length
+      ? r.postulaciones.map((p) => `<article class="tarjeta" style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div><h3 style="margin-bottom:2px">${esc(p.nombre)} ${esc(p.apellidos)}</h3>
+              <div class="pequeno suave">${esc(p.correo)}${p.telefono ? " · " + esc(p.telefono) : ""}${p.ubicacion ? " · " + esc(p.ubicacion) : ""}</div>
+              <div class="pequeno suave">Se postuló el ${fecha(p.creado_en)}</div></div>
+            <div>${etiqueta(p.estado)}</div></div>
+          ${p.resumen ? `<p class="pre" style="margin:14px 0 0"><b>Perfil:</b> ${esc(p.resumen)}</p>` : ""}
+          ${p.mensaje ? `<p class="pre" style="margin:10px 0 0"><b>Mensaje:</b> ${esc(p.mensaje)}</p>` : ""}
+          <div class="acciones" style="margin-top:16px">
+            ${p.estado === "enviada" ? `<button class="boton sec chico" data-id="${p.id}" data-estado="en_revision">Marcar en revisión</button>` : ""}
+            ${p.estado !== "aceptada" ? `<button class="boton chico" data-id="${p.id}" data-estado="aceptada">Aceptar</button>` : ""}
+            ${p.estado !== "rechazada" ? `<button class="boton peligro chico" data-id="${p.id}" data-estado="rechazada">Rechazar</button>` : ""}</div></article>`).join("")
+      : `<p class="vacio">Esta oferta todavía no tiene aplicantes.</p>`;
+  }
+  document.getElementById("lista").addEventListener("click", async (e) => {
+    const b = e.target.closest("button[data-id]");
+    if (!b) return;
+    try { await api("/empresa/postulaciones/" + b.dataset.id, { metodo: "PATCH", cuerpo: { estado: b.dataset.estado } }); cargar(); }
+    catch (err) { mensaje("#mensaje", "error", err.message); }
+  });
+  cargar().catch((err) => { document.getElementById("lista").innerHTML = `<p class="vacio">${esc(err.message)}</p>`; });
+}
+
+</script>
+</body>
+</html>

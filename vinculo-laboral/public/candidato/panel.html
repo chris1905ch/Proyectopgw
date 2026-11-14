@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi panel · Vínculo Laboral</title>
+<link rel="stylesheet" href="../css/app.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<header id="cabecera"></header>
+<main class="contenedor principal">
+
+<div class="encabezado-pagina"><h1 id="saludo">Mi panel</h1><a class="boton" href="/empleos.html">Buscar empleos</a></div>
+<div id="mensaje"></div>
+<div class="kpis" id="kpis"></div>
+<div class="dos-col">
+  <section class="tarjeta"><h3>Postulaciones recientes</h3><div id="recientes"></div></section>
+  <section class="tarjeta"><h3>Estado de su perfil</h3><div id="perfil"></div></section>
+</div>
+</main>
+<footer id="pie"></footer>
+<script src="../js/app.js"></script>
+<script>
+
+if (montar({ rol: "candidato", activo: "panel" })) (async () => {
+  document.getElementById("saludo").textContent = "Hola, " + Sesion.usuario().nombre;
+  const d = await api("/candidato/dashboard");
+  const k = (n, t) => `<div class="kpi"><b>${n}</b><span>${t}</span></div>`;
+  document.getElementById("kpis").innerHTML = k(d.total, "postulaciones") + k(d.porEstado.enviada + d.porEstado.en_revision, "en espera de respuesta") + k(d.porEstado.aceptada, "aceptadas") + k(d.porEstado.rechazada, "rechazadas");
+  document.getElementById("recientes").innerHTML = d.recientes.length
+    ? `<table><tbody>${d.recientes.map((p) => `<tr><td><a href="/empleo.html?id=${p.oferta_id}">${esc(p.titulo)}</a><br><span class="pequeno suave">${esc(p.empresa)}</span></td><td>${etiqueta(p.estado)}</td></tr>`).join("")}</tbody></table>`
+    : `<p class="vacio">Aún no se ha postulado a ninguna oferta.</p>`;
+  document.getElementById("perfil").innerHTML = `<p class="suave pequeno">Un perfil completo ayuda a que las empresas conozcan su experiencia.</p>
+    <div class="fila-barra" style="grid-template-columns:1fr 44px"><div class="barra"><i style="width:${d.completitud}%"></i></div><b>${d.completitud}%</b></div>
+    ${d.completitud < 100 ? `<a href="/candidato/perfil.html">Completar mi perfil</a>` : `<span class="suave pequeno">Su perfil está completo.</span>`}`;
+})();
+
+</script>
+</body>
+</html>
