@@ -36,6 +36,8 @@ La aplicación tiene tres tipos de usuario: el candidato, que busca y aplica a o
 
    Para crear solo las tablas, sin datos, se usa `npm run db:init`. Ambos comandos borran y recrean las tablas.
 
+   Si ya tiene una base de datos con datos y quiere conservarlos, use `npm run db:migrar`: agrega la tabla `postulacion_historial` y la columna `habilidades`, y reconstruye el historial de las postulaciones existentes. Se puede ejecutar más de una vez.
+
 4. Iniciar el servidor y abrir http://localhost:3000
 
    ```bash
@@ -57,6 +59,8 @@ La contraseña de todos es `Clave12345`.
 | Candidato | daniela.ortiz@correo.sv |
 | Candidato | mauricio.flores@correo.sv |
 
+Con `npm run db:seed` también se crean otros candidatos y postulaciones con fechas pasadas, para ver el tiempo de respuesta de la Clínica Santa Lucía (2 días en promedio) y un recorrido completo en las postulaciones de Daniela.
+
 ## Pruebas
 
 Las pruebas usan una base de datos distinta, para no borrar los datos de trabajo:
@@ -71,6 +75,12 @@ Si el usuario o la contraseña no son los del archivo `.env.example`, se define 
 npm test
 ```
 
+## Seguimiento de postulaciones
+
+- **Línea de tiempo.** Cada cambio de estado de una postulación (enviada, en revisión, aceptada, rechazada, retirada) se guarda en la tabla `postulacion_historial`. En *Mis postulaciones*, el botón «Ver recorrido» muestra los pasos con fecha y hora.
+- **Tiempo de respuesta de la empresa.** El detalle de cada oferta indica en cuántos días responde en promedio la empresa y a qué porcentaje de postulaciones contesta. Se calcula con el historial: la respuesta es el primer cambio a en revisión, aceptada o rechazada. Las postulaciones retiradas sin respuesta no cuentan, y hasta que la empresa tenga 3 postulaciones se muestra un aviso de que aún no hay datos suficientes.
+- **¿Qué me falta para esta oferta?** En el detalle de una oferta, el candidato ve qué requisitos aparecen en su perfil (resumen y habilidades) y cuáles no, con un artículo de Recursos cuando hay uno sobre el tema. La comparación es por palabras clave (`src/coincidencia.js`). Para ampliar las sugerencias, se agregan artículos en `public/js/articulos.js` con sus `temas`.
+
 ## Otras páginas
 
 Además de los módulos principales, el sitio incluye una página de recursos y consejos de carrera (`/recursos.html`) con artículos cortos filtrables por categoría, y un formulario para cambiar la contraseña en el perfil de candidatos y de empresas.
@@ -78,15 +88,17 @@ Además de los módulos principales, el sitio incluye una página de recursos y 
 ## Estructura
 
 ```
-db/             esquema SQL y script de carga inicial
+db/             esquema SQL, script de carga inicial y migraciones
 src/
   app.js        configuración de Express
   server.js     arranque del servidor
   db.js         conexión a PostgreSQL
+  postulaciones.js  cambios de estado con historial y tiempo de respuesta
+  coincidencia.js   comparación de requisitos con el perfil
   middleware/   sesión, validaciones y manejo de errores
   routes/       auth, publico, candidato, empresa y admin
 public/         páginas, estilos y scripts del cliente
-tests/          pruebas funcionales y de integración (api.test.js y password.test.js)
+tests/          pruebas funcionales y de integración (api.test.js, password.test.js y coincidencia.test.js)
 ```
 
 ## Reglas principales
@@ -106,10 +118,11 @@ tests/          pruebas funcionales y de integración (api.test.js y password.te
 | `POST /api/auth/registro/empresa` | Crear empresa |
 | `POST /api/auth/login` | Iniciar sesión |
 | `GET /api/publico/ofertas` | Buscar ofertas (filtros: q, departamento, tipo, modalidad, experiencia, salario_min, pagina) |
-| `GET /api/publico/ofertas/:id` | Detalle de una oferta |
+| `GET /api/publico/ofertas/:id` | Detalle de una oferta, con `respuesta_empresa` (días promedio y porcentaje de respuesta) |
 | `POST /api/publico/ofertas/:id/postular` | Aplicar a una oferta |
 | `GET /api/candidato/dashboard` | Dashboard del candidato |
-| `GET /api/candidato/postulaciones` | Postulaciones del candidato |
+| `GET /api/candidato/postulaciones` | Postulaciones del candidato, cada una con su `historial` de estados |
+| `GET /api/candidato/ofertas/:id/coincidencia` | Requisitos de la oferta que coinciden o faltan según el perfil, con artículos sugeridos |
 | `GET /api/empresa/dashboard` | Dashboard de la empresa |
 | `POST /api/empresa/ofertas` | Crear oferta |
 | `PATCH /api/empresa/ofertas/:id/estado` | Activar, inactivar o cancelar |

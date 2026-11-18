@@ -19,16 +19,41 @@
 <script src="../js/app.js"></script>
 <script>
 
+// Recorrido de la postulación, como el seguimiento de un paquete
+function lineaDeTiempo(historial) {
+  const pasos = historial || [];
+  const dias = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+  const items = pasos.map((h, i) => {
+    const espera = i > 0 ? dias(pasos[i - 1].fecha, h.fecha) : 0;
+    return `<li class="paso ${i === pasos.length - 1 ? "actual" : "hecho"}"><b>${esc((ESTADOS[h.estado] || [h.estado])[0])}</b>
+      <span class="pequeno suave">${fechaHora(h.fecha)}${espera >= 1 ? ` · ${espera} ${espera === 1 ? "día" : "días"} después` : ""}</span></li>`;
+  });
+  const ultimo = pasos.length ? pasos[pasos.length - 1].estado : null;
+  if (ultimo === "enviada") items.push(`<li class="paso pendiente"><b>Esperando respuesta de la empresa</b></li>`);
+  if (ultimo === "en_revision") items.push(`<li class="paso pendiente"><b>Esperando la decisión de la empresa</b></li>`);
+  return items.length ? `<ol class="linea-tiempo">${items.join("")}</ol>` : `<p class="pequeno suave">Esta postulación es anterior al registro de cambios.</p>`;
+}
+
 if (montar({ rol: "candidato", activo: "postulaciones" })) {
   async function cargar() {
     const filas = await api("/candidato/postulaciones");
     document.getElementById("tabla").innerHTML = filas.length
       ? `<table><thead><tr><th>Oferta</th><th>Empresa</th><th>Enviada</th><th>Estado</th><th></th></tr></thead><tbody>${filas.map((p) => `<tr>
           <td><a href="/empleo.html?id=${p.oferta_id}">${esc(p.titulo)}</a></td><td>${esc(p.empresa)}</td><td>${fecha(p.creado_en)}</td><td>${etiqueta(p.estado)}</td>
-          <td>${["enviada", "en_revision"].includes(p.estado) ? `<button class="boton peligro chico" data-id="${p.id}">Retirar</button>` : ""}</td></tr>`).join("")}</tbody></table>`
+          <td><div class="acciones"><button class="boton sec chico" data-recorrido="${p.id}" aria-expanded="false">Ver recorrido</button>
+          ${["enviada", "en_revision"].includes(p.estado) ? `<button class="boton peligro chico" data-id="${p.id}">Retirar</button>` : ""}</div></td></tr>
+          <tr class="fila-recorrido" id="recorrido-${p.id}" hidden><td colspan="5">${lineaDeTiempo(p.historial)}</td></tr>`).join("")}</tbody></table>`
       : `<p class="vacio">Todavía no tiene postulaciones. <a href="/empleos.html">Buscar empleos</a></p>`;
   }
   document.getElementById("tabla").addEventListener("click", async (e) => {
+    const r = e.target.closest("button[data-recorrido]");
+    if (r) {
+      const fila = document.getElementById("recorrido-" + r.dataset.recorrido);
+      fila.hidden = !fila.hidden;
+      r.setAttribute("aria-expanded", String(!fila.hidden));
+      r.textContent = fila.hidden ? "Ver recorrido" : "Ocultar recorrido";
+      return;
+    }
     const b = e.target.closest("button[data-id]");
     if (!b || !confirm("¿Desea retirar esta postulación?")) return;
     try { await api(`/candidato/postulaciones/${b.dataset.id}/retirar`, { metodo: "PATCH" }); mensaje("#mensaje", "ok", "La postulación fue retirada."); cargar(); }

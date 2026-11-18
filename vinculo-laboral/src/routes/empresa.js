@@ -3,6 +3,7 @@ const db = require('../db');
 const { ErrorHttp, asincrono } = require('../middleware/errors');
 const { Validador, idParam, DEPARTAMENTOS, TIPOS_CONTRATO, MODALIDADES, NIVELES } = require('../middleware/validar');
 const { requiereSesion, requiereRol } = require('../middleware/auth');
+const postulaciones = require('../postulaciones');
 
 const router = express.Router();
 router.use(requiereSesion, requiereRol('empresa'));
@@ -180,12 +181,12 @@ router.patch('/postulaciones/:id', asincrono(async (req, res) => {
   const nuevo = req.body.estado;
   if (!['en_revision', 'aceptada', 'rechazada'].includes(nuevo)) throw new ErrorHttp(400, 'Estado no válido');
   const p = (await db.query(
-    `SELECT p.id, p.estado FROM postulaciones p JOIN ofertas o ON o.id = p.oferta_id
+    `SELECT p.* FROM postulaciones p JOIN ofertas o ON o.id = p.oferta_id
       WHERE p.id = $1 AND o.empresa_id = $2`, [id, req.empresa.id])).rows[0];
   if (!p) throw new ErrorHttp(404, 'La postulación no existe');
   if (p.estado === 'retirada') throw new ErrorHttp(409, 'El candidato retiró esta postulación');
-  const { rows } = await db.query(`UPDATE postulaciones SET estado = $1, actualizado_en = now() WHERE id = $2 RETURNING *`, [nuevo, id]);
-  res.json(rows[0]);
+  if (p.estado === nuevo) return res.json(p); // sin cambio, no se registra en el historial
+  res.json(await postulaciones.cambiarEstado(id, nuevo));
 }));
 
 module.exports = router;

@@ -420,3 +420,119 @@ describe('Exportar usuarios a CSV', () => {
     assert.ok(fila.includes("'=SUMA(1+1)"));
   });
 });
+
+// ---- Línea de tiempo, tiempo de respuesta y "¿Qué me falta?" ----
+// Usan una empresa propia, creada aquí, para no depender de los datos de las demás pruebas.
+describe('Historial, tiempo de respuesta y coincidencia', () => {
+  let tokenEmpresa, empresaId, ofertaId;
+  const candidatos = [];
+
+  const nuevoCandidato = async (n) => {
+    const r = await request(app).post('/api/auth/registro/candidato').send(
+      { nombre: 'Prueba' + n, apellidos: 'Historial', correo: `historial${n}@correo.sv`, password: 'unaClave123' });
+    return r.body.token;
+  };
+  const postular = (token) => request(app).post(`/api/publico/ofertas/${ofertaId}/postular`).set(con(token)).send({});
+  const misPostulaciones = async (token) => (await request(app).get('/api/candidato/postulaciones').set(con(token))).body;
+  const idPostulacion = async (token) => (await misPostulaciones(token))[0].id;
+  const decidir = (id, estado) => request(app).patch('/api/empresa/postulaciones/' + id).set(con(tokenEmpresa)).send({ estado });
+  const estadosDe = (p) => p.historial.map((h) => h.estado);
+
+  before(async () => {
+    const reg = await request(app).post('/api/auth/registro/empresa').send({
+      nombre: 'Rosa', apellidos: 'Cañas', correo: 'rosa@imprentaelfaro.sv', password: 'unaClave123',
+      razon_social: 'Imprenta El Faro', nit: '0614-010101-101-1', sector: 'Servicios', departamento: 'San Miguel' });
+    tokenEmpresa = reg.body.token;
+    empresaId = (await request(app).get('/api/auth/yo').set(con(tokenEmpresa))).body.empresa.id;
+    await request(app).patch(`/api/admin/empresas/${empresaId}/verificacion`).set(con(admin)).send({ verificacion: 'verificada' });
+    ofertaId = (await request(app).post('/api/empresa/ofertas').set(con(tokenEmpresa)).send(ofertaValida({ titulo: 'Operario de imprenta' }))).body.id;
+    for (let i = 1; i <= 4; i++) candidatos.push(await nuevoCandidato(i));
+  });
+
+  it('PF-43 Cada cambio de estado queda en el historial, en orden', async () => {
+    assert.equal((await postular(candidatos[0])).status, 201);
+    const id = await idPostulacion(candidatos[0]);
+    assert.deepEqual(estadosDe((await misPostulaciones(candidatos[0]))[0]), ['enviada']);
+    await decidir(id, 'en_revision');
+    await decidir(id, 'aceptada');
+    const p = (await misPostulaciones(candidatos[0]))[0];
+    assert.deepEqual(estadosDe(p), ['enviada', 'en_revision', 'aceptada']);
+    assert.ok(p.historial.every((h) => h.fecha));
+  });
+  it('PF-44 Repetir el mismo estado no duplica el registro', async () => {
+    const id = await idPostulacion(candidatos[0]);
+    const r = await decidir(id, 'aceptada');
+    assert.equal(r.status, 200);
+    assert.equal(estadosDe((await misPostulaciones(candidatos[0]))[0]).length, 3);
+  });
+  it('PF-45 Retirar y volver a postularse queda en el historial', async () => {
+    await postular(candidatos[1]);
+    const id = await idPostulacion(candidatos[1]);
+    await request(app).patch(`/api/candidato/postulaciones/${id}/retirar`).set(con(candidatos[1]));
+    await postular(candidatos[1]);
+    assert.deepEqual(estadosDe((await misPostulaciones(candidatos[1]))[0]), ['enviada', 'retirada', 'enviada']);
+  });
+  it('PF-46 Con pocas postulaciones no se muestra el tiempo de respuesta', async () => {
+    const r = await request(app).get('/api/publico/ofertas/' + ofertaId);
+    assert.equal(r.body.respuesta_empresa.suficiente, false);
+  });
+  it('PF-47 Calcula el promedio de días y el porcentaje de postulaciones respondidas', async () => {
+    await postular(candidatos[2]);
+    await postular(candidatos[3]);
+    const retirada = await idPostulacion(candidatos[3]);
+    await request(app).patch(`/api/candidato/postulaciones/${retirada}/retirar`).set(con(candidatos[3]));
+    // Candidato 0 (aceptada) respondió a los 2 días, candidato 2 a los 4, el 1 no ha tenido respuesta
+    // y el 3 retiró sin respuesta (no cuenta, la empresa no tuvo oportunidad de contestar)
+    const ajustar = async (token, diasEnvio, diasRespuesta) => {
+      const id = await idPostulacion(token);
+      await db.query(`UPDATE postulacion_historial SET creado_en = now() - make_interval(days => $1::int) WHERE postulacion_id = $2 AND estado = 'enviada'`, [diasEnvio, id]);
+      await db.query(`UPDATE postulaciones SET creado_en = now() - make_interval(days => $1::int) WHERE id = $2`, [diasEnvio, id]);
+      if (diasRespuesta !== null) {
+        await db.query(`UPDATE postulacion_historial SET creado_en = now() - make_interval(days => $1::int) WHERE postulacion_id = $2 AND estado IN ('en_revision','aceptada','rechazada')`, [diasRespuesta, id]);
+      }
+    };
+    await ajustar(candidatos[0], 10, 8);
+    const id2 = await idPostulacion(candidatos[2]);
+    await decidir(id2, 'rechazada');
+    await ajustar(candidatos[2], 10, 6);
+
+    const r = await request(app).get('/api/publico/ofertas/' + ofertaId);
+    assert.deepEqual(r.body.respuesta_empresa, { suficiente: true, total: 3, respondidas: 2, porcentaje: 67, dias_promedio: 3 });
+  });
+  it('PF-48 El tiempo de respuesta es público y también aparece sin sesión', async () => {
+    const r = await request(app).get('/api/publico/ofertas/1');
+    assert.equal(r.status, 200);
+    assert.ok('suficiente' in r.body.respuesta_empresa);
+  });
+
+  describe('¿Qué me falta para esta oferta?', () => {
+    let oferta;
+    before(async () => {
+      oferta = (await request(app).post('/api/empresa/ofertas').set(con(tokenEmpresa)).send(
+        ofertaValida({ titulo: 'Asistente administrativo', requisitos: 'Manejo de Excel intermedio.\nLicencia de conducir liviana.' }))).body.id;
+    });
+    const consultar = (token) => request(app).get(`/api/candidato/ofertas/${oferta}/coincidencia`).set(con(token));
+
+    it('PF-49 Indica qué requisitos faltan y sugiere el artículo de Recursos', async () => {
+      const r = await consultar(candidatos[0]);
+      assert.equal(r.status, 200);
+      assert.equal(r.body.total, 2);
+      assert.equal(r.body.cumplidos, 0);
+      assert.equal(r.body.perfil_vacio, true);
+      const excel = r.body.requisitos.find((x) => /Excel/.test(x.texto));
+      assert.equal(excel.articulo.id, 'habilidades-digitales');
+    });
+    it('PF-50 Las habilidades del perfil cuentan como coincidencia', async () => {
+      const perfil = { nombre: 'Prueba1', apellidos: 'Historial', habilidades: 'Excel, Word' };
+      assert.equal((await request(app).put('/api/candidato/perfil').set(con(candidatos[0])).send(perfil)).status, 200);
+      const r = await consultar(candidatos[0]);
+      assert.equal(r.body.cumplidos, 1);
+      assert.equal(r.body.requisitos.find((x) => /Excel/.test(x.texto)).cumple, true);
+    });
+    it('PF-51 Solo los candidatos con sesión pueden consultarlo y la oferta debe estar disponible', async () => {
+      assert.equal((await request(app).get(`/api/candidato/ofertas/${oferta}/coincidencia`)).status, 401);
+      assert.equal((await consultar(tokenEmpresa)).status, 403);
+      assert.equal((await request(app).get('/api/candidato/ofertas/99999/coincidencia').set(con(candidatos[0]))).status, 404);
+    });
+  });
+});

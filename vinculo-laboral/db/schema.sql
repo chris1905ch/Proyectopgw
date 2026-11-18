@@ -1,5 +1,5 @@
 -- Vínculo Laboral: esquema de base de datos (PostgreSQL)
-DROP TABLE IF EXISTS postulaciones, ofertas, empresas, usuarios CASCADE;
+DROP TABLE IF EXISTS postulacion_historial, postulaciones, ofertas, empresas, usuarios CASCADE;
 
 CREATE TABLE usuarios (
   id SERIAL PRIMARY KEY,
@@ -11,6 +11,7 @@ CREATE TABLE usuarios (
   telefono VARCHAR(9),
   ubicacion VARCHAR(40),
   resumen TEXT,
+  habilidades TEXT,
   estado VARCHAR(12) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'suspendido')),
   intentos_fallidos INT NOT NULL DEFAULT 0,
   bloqueado_hasta TIMESTAMPTZ,
@@ -63,3 +64,12 @@ CREATE TABLE postulaciones (
   UNIQUE (oferta_id, candidato_id)
 );
 CREATE INDEX idx_postulaciones_candidato ON postulaciones(candidato_id);
+
+-- Cada cambio de estado de una postulación deja una fila aquí (línea de tiempo y tiempo de respuesta de la empresa)
+CREATE TABLE postulacion_historial (
+  id SERIAL PRIMARY KEY,
+  postulacion_id INT NOT NULL REFERENCES postulaciones(id) ON DELETE CASCADE,
+  estado VARCHAR(12) NOT NULL CHECK (estado IN ('enviada', 'en_revision', 'aceptada', 'rechazada', 'retirada')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_historial_postulacion ON postulacion_historial(postulacion_id, creado_en);

@@ -34,6 +34,7 @@ async function api(ruta, { metodo = 'GET', cuerpo } = {}) {
 
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fecha = (f) => (f ? new Date(f).toLocaleDateString('es-SV', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const fechaHora = (f) => (f ? new Date(f).toLocaleString('es-SV', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 const dinero = (n) => '$' + Number(n).toLocaleString('es-SV', { maximumFractionDigits: 0 });
 const salario = (min, max) => {
   if (min == null && max == null) return 'Salario no indicado';

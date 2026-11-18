@@ -3,6 +3,7 @@ const db = require('../db');
 const { ErrorHttp, asincrono } = require('../middleware/errors');
 const { idParam, DEPARTAMENTOS, TIPOS_CONTRATO, MODALIDADES, NIVELES } = require('../middleware/validar');
 const { sesionOpcional, requiereSesion, requiereRol } = require('../middleware/auth');
+const postulaciones = require('../postulaciones');
 
 const router = express.Router();
 const POR_PAGINA = 10;
@@ -73,6 +74,7 @@ router.get('/ofertas/:id', sesionOpcional, asincrono(async (req, res) => {
 
   if (!o.mostrar_salario) { o.salario_min = null; o.salario_max = null; }
   delete o.propietario_id;
+  o.respuesta_empresa = await postulaciones.tiempoRespuesta(o.empresa_id);
   o.ya_postulado = false;
   if (req.usuario && req.usuario.rol === 'candidato') {
     const p = await db.query(`SELECT estado FROM postulaciones WHERE oferta_id = $1 AND candidato_id = $2`, [id, req.usuario.id]);
@@ -93,12 +95,9 @@ router.post('/ofertas/:id/postular', requiereSesion, requiereRol('candidato'), a
   }
   const previa = (await db.query(`SELECT id, estado FROM postulaciones WHERE oferta_id = $1 AND candidato_id = $2`, [id, req.usuario.id])).rows[0];
   if (previa && previa.estado !== 'retirada') throw new ErrorHttp(409, 'Ya se postuló a esta oferta');
-  let fila;
-  if (previa) {
-    fila = (await db.query(`UPDATE postulaciones SET estado = 'enviada', mensaje = $1, actualizado_en = now() WHERE id = $2 RETURNING *`, [mensaje, previa.id])).rows[0];
-  } else {
-    fila = (await db.query(`INSERT INTO postulaciones (oferta_id, candidato_id, mensaje) VALUES ($1,$2,$3) RETURNING *`, [id, req.usuario.id, mensaje])).rows[0];
-  }
+  const fila = previa
+    ? await postulaciones.reenviar(previa.id, mensaje)
+    : await postulaciones.crear(id, req.usuario.id, mensaje);
   res.status(201).json(fila);
 }));
 

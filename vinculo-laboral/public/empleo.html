@@ -21,6 +21,38 @@
 montar({ activo: "empleos" });
 const id = new URLSearchParams(location.search).get("id");
 const u = Sesion.usuario();
+
+// Tiempo de respuesta de la empresa, calculado con el historial de sus postulaciones
+function respuestaEmpresa(r) {
+  if (!r || !r.suficiente) return `<p class="pequeno suave">Aún no hay suficientes postulaciones para saber cuánto tarda esta empresa en responder.</p>`;
+  if (!r.respondidas) return `<p class="pequeno"><b>Sin respuestas todavía.</b> Esta empresa no ha respondido ninguna de las ${r.total} postulaciones recibidas.</p>`;
+  const d = r.dias_promedio;
+  const tiempo = d < 1 ? "menos de un día" : Math.round(d) === 1 ? "1 día" : Math.round(d) + " días";
+  return `<p class="pequeno" style="margin:0"><b>Responde en ${tiempo} en promedio.</b><br>Contesta al ${r.porcentaje} % de las postulaciones (${r.respondidas} de ${r.total}).</p>`;
+}
+
+// ¿Qué me falta para esta oferta? Solo para candidatos
+async function coincidencia() {
+  const caja = document.getElementById("coincidencia");
+  if (!caja || !u || u.rol !== "candidato") return;
+  try {
+    const c = await api(`/candidato/ofertas/${encodeURIComponent(id)}/coincidencia`);
+    if (!c.total) return;
+    const fila = (r) => `<li class="${r.cumple ? "cumple" : "falta"}">
+        <span class="marca" aria-hidden="true">${r.cumple ? "✓" : "✗"}</span>
+        <div><div>${esc(r.texto)}</div>
+          <div class="pequeno suave">${r.cumple
+            ? "Coincide con su perfil" + (r.coincidencias.length ? " (" + esc(r.coincidencias.join(", ")) + ")" : "")
+            : "No aparece en su perfil"}</div>
+          ${r.articulo ? `<div class="pequeno">Para aprenderlo: <a href="/recursos.html#${esc(r.articulo.id)}">${esc(r.articulo.titulo)}</a></div>` : ""}</div></li>`;
+    caja.innerHTML = `<div class="coincidencia"><h2>¿Qué me falta para esta oferta?</h2>
+      <p class="suave">Su perfil coincide con <b>${c.cumplidos} de ${c.total}</b> requisitos.</p>
+      ${c.perfil_vacio ? `<div class="alerta aviso">Su perfil está vacío, por eso no se encontró ninguna coincidencia. <a href="/candidato/perfil.html">Complete su resumen y habilidades</a>.</div>` : ""}
+      <ul class="lista-requisitos">${c.requisitos.map(fila).join("")}</ul>
+      ${c.consejo && !c.perfil_vacio ? `<p class="pequeno suave">¿Ya tiene alguno de los que faltan? Anótelo en <a href="/candidato/perfil.html">su perfil</a>. Guía: <a href="/recursos.html#${esc(c.consejo.id)}">${esc(c.consejo.titulo)}</a>.</p>` : ""}
+    </div>`;
+  } catch (err) { /* la comparación es un extra: si falla, la oferta se sigue viendo */ }
+}
 const bloque = (t, txt) => txt ? `<h2>${t}</h2><p class="pre">${esc(txt)}</p>` : "";
 (async () => {
   try {
@@ -39,12 +71,14 @@ const bloque = (t, txt) => txt ? `<h2>${t}</h2><p class="pre">${esc(txt)}</p>` :
         <p class="suave">${esc(o.empresa)} · ${esc(o.departamento)} · ${esc(o.modalidad)}</p>
         <p><span class="etiqueta">${esc(o.tipo_contrato)}</span> <span class="etiqueta">${esc(o.nivel_experiencia)}</span> ${o.estado !== "activa" ? etiqueta(o.estado) : ""}</p>
         <p><b>${esc(salario(o.salario_min, o.salario_max))}</b> · Cierra el ${fecha(o.fecha_cierre)}</p>
-        ${bloque("Descripción", o.descripcion)}${bloque("Requisitos", o.requisitos)}${bloque("Beneficios", o.beneficios)}
+        ${bloque("Descripción", o.descripcion)}${bloque("Requisitos", o.requisitos)}<div id="coincidencia"></div>${bloque("Beneficios", o.beneficios)}
       </article><aside><div class="tarjeta">${accion}</div>
         <div class="tarjeta" style="margin-top:16px"><h3>${esc(o.empresa)}</h3>
           <p class="pequeno suave">${esc(o.sector)} · ${esc(o.empresa_departamento)}</p>
           <p class="pequeno pre">${esc(o.empresa_descripcion || "")}</p>
+          <div class="respuesta-empresa">${respuestaEmpresa(o.respuesta_empresa)}</div>
           <p class="pequeno" style="margin:0">${esc(o.contacto_correo)}${o.contacto_telefono ? "<br>" + esc(o.contacto_telefono) : ""}</p></div></aside></div>`;
+    coincidencia();
     const f = document.getElementById("postular");
     if (f) f.addEventListener("submit", async (e) => {
       e.preventDefault();
