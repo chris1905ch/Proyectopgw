@@ -27,10 +27,21 @@
     <div class="campo"><label for="resumen">Resumen profesional</label><textarea id="resumen" name="resumen" maxlength="1500" placeholder="Estudios, experiencia y habilidades que quiera destacar"></textarea></div>
     <button class="boton">Guardar cambios</button>
   </form>
+  <form id="form-clave" class="tarjeta" style="margin-top:24px" novalidate>
+    <h3>Cambiar contraseña</h3>
+    <div id="mensaje-clave"></div>
+    <div class="campo"><label for="actual">Contraseña actual</label><input id="actual" name="actual" type="password" autocomplete="current-password"></div>
+    <div class="fila">
+      <div class="campo"><label for="nueva">Contraseña nueva (mínimo 8 caracteres)</label><input id="nueva" name="nueva" type="password" autocomplete="new-password"></div>
+      <div class="campo"><label for="confirmar">Confirmar contraseña nueva</label><input id="confirmar" name="confirmar" type="password" autocomplete="new-password"></div>
+    </div>
+    <button class="boton">Cambiar contraseña</button>
+  </form>
 </div>
 </main>
 <footer id="pie"></footer>
 <script src="../js/app.js"></script>
+<script src="../js/clave.js"></script>
 <script>
 
 if (montar({ rol: "candidato", activo: "perfil" })) (async () => {
