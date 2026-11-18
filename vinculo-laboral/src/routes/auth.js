@@ -111,4 +111,24 @@ router.get('/yo', requiereSesion, asincrono(async (req, res) => {
   res.json(salida);
 }));
 
+// Cambiar la contraseña de la cuenta con sesión iniciada
+router.put('/password', requiereSesion, asincrono(async (req, res) => {
+  const v = new Validador(req.body);
+  const actual = typeof req.body.actual === 'string' ? req.body.actual : '';
+  const nueva = v.password('nueva');
+  if (!actual) v.falla('actual', 'Ingrese su contraseña actual');
+  else if (nueva === actual) v.falla('nueva', 'La contraseña nueva debe ser distinta de la actual');
+  v.listo();
+
+  const { rows } = await db.query('SELECT password_hash FROM usuarios WHERE id = $1', [req.usuario.id]);
+  if (!rows[0]) throw new ErrorHttp(401, 'La sesión ya no es válida');
+  // Se responde 400 y no 401 para que el navegador no cierre la sesión por una clave mal escrita
+  if (!(await bcrypt.compare(actual, rows[0].password_hash))) {
+    throw new ErrorHttp(400, 'Revise los datos ingresados', { actual: 'La contraseña actual no es correcta' });
+  }
+  const hash = await bcrypt.hash(nueva, 10);
+  await db.query('UPDATE usuarios SET password_hash = $1 WHERE id = $2', [hash, req.usuario.id]);
+  res.json({ mensaje: 'La contraseña se actualizó' });
+}));
+
 module.exports = router;
