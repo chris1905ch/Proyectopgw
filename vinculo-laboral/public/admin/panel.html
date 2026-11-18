@@ -44,7 +44,7 @@ if (montar({ rol: "admin", activo: "panel" })) {
       <div class="campo"><label>Buscar</label><input name="q" placeholder="Nombre o correo"></div>
       <div class="campo"><label>Rol</label><select name="rol"><option value="">Todos</option><option value="candidato">Candidato</option><option value="empresa">Empresa</option><option value="admin">Administrador</option></select></div>
       <div class="campo"><label>Estado</label><select name="estado"><option value="">Todos</option><option value="activo">Activo</option><option value="suspendido">Suspendido</option></select></div>
-      <div class="campo"><button class="boton sec">Filtrar</button></div></form><div id="t"></div></div>`;
+      <div class="campo"><div class="acciones"><button class="boton sec">Filtrar</button><button type="button" class="boton sec" id="exportar">Exportar CSV</button></div></div></form><div id="t"></div></div>`;
     const f = document.getElementById("f");
     async function listar() {
       const q = new URLSearchParams(datosForm(f));
@@ -57,6 +57,19 @@ if (montar({ rol: "admin", activo: "panel" })) {
         : '<p class="vacio">No hay usuarios con esos criterios.</p>';
     }
     f.addEventListener("submit", (e) => { e.preventDefault(); listar(); });
+    document.getElementById("exportar").addEventListener("click", async () => {
+      const q = new URLSearchParams(datosForm(f));
+      [...q].forEach(([k, v]) => !v && q.delete(k));
+      try {
+        const resp = await fetch("/api/admin/usuarios/exportar?" + q, { headers: { Authorization: "Bearer " + Sesion.token() } });
+        if (!resp.ok) throw new Error("No se pudo exportar la lista de usuarios");
+        const enlace = document.createElement("a");
+        enlace.href = URL.createObjectURL(await resp.blob());
+        enlace.download = "usuarios.csv";
+        enlace.click();
+        URL.revokeObjectURL(enlace.href);
+      } catch (err) { mensaje("#mensaje", "error", err.message); }
+    });
     document.getElementById("t").addEventListener("click", async (e) => {
       const b = e.target.closest("button[data-id]");
       if (!b) return;

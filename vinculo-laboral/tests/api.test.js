@@ -390,3 +390,33 @@ describe('Pruebas de integración', () => {
     await request(app).patch(`/api/admin/usuarios/${u.id}/estado`).set(con(admin)).send({ estado: 'activo' });
   });
 });
+
+describe('Exportar usuarios a CSV', () => {
+  it('PF-39 El administrador descarga la lista de usuarios en CSV', async () => {
+    const r = await request(app).get('/api/admin/usuarios/exportar').set(con(admin));
+    assert.equal(r.status, 200);
+    assert.match(r.headers['content-type'], /text\/csv/);
+    assert.match(r.headers['content-disposition'], /usuarios\.csv/);
+    const lineas = r.text.replace(/^\ufeff/, '').trim().split('\r\n');
+    assert.equal(lineas[0], 'id,nombre,apellidos,correo,rol,estado,creado_en');
+    assert.ok(lineas.length > 5);
+    assert.ok(r.text.includes('admin@vinculolaboral.sv'));
+  });
+  it('PF-40 La exportación respeta los filtros del listado', async () => {
+    const r = await request(app).get('/api/admin/usuarios/exportar?rol=empresa').set(con(admin));
+    assert.ok(r.text.includes('rrhh@distcuscatlan.sv'));
+    assert.ok(!r.text.includes('daniela.ortiz@correo.sv'));
+  });
+  it('PF-41 Solo el administrador puede exportar', async () => {
+    assert.equal((await request(app).get('/api/admin/usuarios/exportar')).status, 401);
+    assert.equal((await request(app).get('/api/admin/usuarios/exportar').set(con(empresa))).status, 403);
+  });
+  it('PF-42 Escapa comas y comillas, y neutraliza fórmulas', async () => {
+    await request(app).post('/api/auth/registro/candidato').send(
+      { nombre: 'Ana "La" Pérez, Jr', apellidos: '=SUMA(1+1)', correo: 'csv.prueba@correo.sv', password: 'unaClave123' });
+    const r = await request(app).get('/api/admin/usuarios/exportar?q=csv.prueba').set(con(admin));
+    const fila = r.text.replace(/^\ufeff/, '').trim().split('\r\n')[1];
+    assert.ok(fila.includes('"Ana ""La"" Pérez, Jr"'));
+    assert.ok(fila.includes("'=SUMA(1+1)"));
+  });
+});
