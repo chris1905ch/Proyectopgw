@@ -71,6 +71,10 @@ Si el usuario o la contraseña no son los del archivo `.env.example`, se define 
 npm test
 ```
 
+## Otras páginas
+
+Además de los módulos principales, el sitio incluye una página de recursos y consejos de carrera (`/recursos.html`) con artículos cortos filtrables por categoría, y un formulario para cambiar la contraseña en el perfil de candidatos y de empresas.
+
 ## Estructura
 
 ```
@@ -82,7 +86,7 @@ src/
   middleware/   sesión, validaciones y manejo de errores
   routes/       auth, publico, candidato, empresa y admin
 public/         páginas, estilos y scripts del cliente
-tests/          pruebas funcionales y de integración
+tests/          pruebas funcionales y de integración (api.test.js y password.test.js)
 ```
 
 ## Reglas principales
@@ -115,3 +119,5 @@ tests/          pruebas funcionales y de integración
 | `GET /api/admin/resumen` | Resumen del sistema |
 | `PATCH /api/admin/empresas/:id/verificacion` | Verificar o rechazar una empresa |
 | `PATCH /api/admin/usuarios/:id/estado` | Suspender o reactivar una cuenta |
+| `GET /api/admin/usuarios/exportar` | Descargar la lista de usuarios en CSV (acepta los filtros q, rol y estado) |
+| `PUT /api/auth/password` | Cambiar la contraseña de la cuenta con sesión iniciada |
