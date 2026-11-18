@@ -55,7 +55,8 @@ if (montar({ rol: "candidato", activo: "postulaciones" })) {
       return;
     }
     const b = e.target.closest("button[data-id]");
-    if (!b || !confirm("¿Desea retirar esta postulación?")) return;
+    if (!b) return;
+    if (!(await confirmar("¿Retirar esta postulación?", "La empresa dejará de verla y no podrá volver a postularse a esta oferta.", { aceptar: "Retirar", peligro: true }))) return;
     try { await api(`/candidato/postulaciones/${b.dataset.id}/retirar`, { metodo: "PATCH" }); mensaje("#mensaje", "ok", "La postulación fue retirada."); cargar(); }
     catch (err) { mensaje("#mensaje", "error", err.message); }
   });

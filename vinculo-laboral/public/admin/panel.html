@@ -73,7 +73,7 @@ if (montar({ rol: "admin", activo: "panel" })) {
     document.getElementById("t").addEventListener("click", async (e) => {
       const b = e.target.closest("button[data-id]");
       if (!b) return;
-      if (b.dataset.estado === "suspendido" && !confirm("¿Suspender esta cuenta? La persona no podrá iniciar sesión.")) return;
+      if (b.dataset.estado === "suspendido" && !(await confirmar("¿Suspender esta cuenta?", "La persona no podrá iniciar sesión mientras esté suspendida.", { aceptar: "Suspender", peligro: true }))) return;
       try { await api(`/admin/usuarios/${b.dataset.id}/estado`, { metodo: "PATCH", cuerpo: { estado: b.dataset.estado } }); listar(); }
       catch (err) { mensaje("#mensaje", "error", err.message); }
     });
@@ -92,7 +92,7 @@ if (montar({ rol: "admin", activo: "panel" })) {
       if (!b) return;
       const cuerpo = { verificacion: b.dataset.v };
       if (b.dataset.v === "rechazada") {
-        const motivo = prompt("Indique el motivo del rechazo:");
+        const motivo = await pedirTexto("Rechazar empresa", "Motivo del rechazo (lo verá la empresa)", { aceptar: "Rechazar", peligro: true });
         if (!motivo) return;
         cuerpo.motivo = motivo;
       }

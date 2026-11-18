@@ -4,6 +4,7 @@ const { ErrorHttp, asincrono } = require('../middleware/errors');
 const { Validador, idParam, DEPARTAMENTOS, TIPOS_CONTRATO, MODALIDADES, NIVELES } = require('../middleware/validar');
 const { requiereSesion, requiereRol } = require('../middleware/auth');
 const postulaciones = require('../postulaciones');
+const archivos = require('../archivos');
 
 const router = express.Router();
 router.use(requiereSesion, requiereRol('empresa'));
@@ -169,11 +170,25 @@ router.delete('/ofertas/:id', asincrono(async (req, res) => {
 router.get('/ofertas/:id/postulaciones', asincrono(async (req, res) => {
   const oferta = await ofertaPropia(req);
   const { rows } = await db.query(
-    `SELECT p.id, p.estado, p.mensaje, p.creado_en, u.nombre, u.apellidos, u.correo, u.telefono, u.ubicacion, u.resumen
+    `SELECT p.id, p.estado, p.mensaje, p.creado_en, u.nombre, u.apellidos, u.correo, u.telefono, u.ubicacion, u.resumen,
+            EXISTS (SELECT 1 FROM candidato_archivos a WHERE a.usuario_id = u.id AND a.tipo = 'cv') AS tiene_cv,
+            EXISTS (SELECT 1 FROM candidato_archivos a WHERE a.usuario_id = u.id AND a.tipo = 'foto') AS tiene_foto
        FROM postulaciones p JOIN usuarios u ON u.id = p.candidato_id
       WHERE p.oferta_id = $1 AND p.estado <> 'retirada' ORDER BY p.creado_en DESC`, [oferta.id]);
   res.json({ oferta: { id: oferta.id, titulo: oferta.titulo, estado: oferta.estado }, postulaciones: rows });
 }));
+
+// La empresa solo puede ver el currículum y la foto de quienes se postularon a sus ofertas
+async function candidatoDePostulacion(req) {
+  const id = idParam(req.params.id);
+  const { rows } = await db.query(
+    `SELECT p.candidato_id FROM postulaciones p JOIN ofertas o ON o.id = p.oferta_id
+      WHERE p.id = $1 AND o.empresa_id = $2 AND p.estado <> 'retirada'`, [id, req.empresa.id]);
+  if (!rows[0]) throw new ErrorHttp(404, 'La postulación no existe');
+  return rows[0].candidato_id;
+}
+router.get('/postulaciones/:id/cv', asincrono(async (req, res) => archivos.enviar(res, await candidatoDePostulacion(req), 'cv', { descargar: true })));
+router.get('/postulaciones/:id/foto', asincrono(async (req, res) => archivos.enviar(res, await candidatoDePostulacion(req), 'foto')));
 
 // Empresa acepta o deniega a un aplicante
 router.patch('/postulaciones/:id', asincrono(async (req, res) => {

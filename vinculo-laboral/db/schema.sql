@@ -1,5 +1,5 @@
 -- Vínculo Laboral: esquema de base de datos (PostgreSQL)
-DROP TABLE IF EXISTS postulacion_historial, postulaciones, ofertas, empresas, usuarios CASCADE;
+DROP TABLE IF EXISTS candidato_archivos, postulacion_historial, postulaciones, ofertas, empresas, usuarios CASCADE;
 
 CREATE TABLE usuarios (
   id SERIAL PRIMARY KEY,
@@ -73,3 +73,14 @@ CREATE TABLE postulacion_historial (
   creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_historial_postulacion ON postulacion_historial(postulacion_id, creado_en);
+
+-- Currículum (PDF) y foto de perfil de cada candidato: un archivo de cada tipo por usuario
+CREATE TABLE candidato_archivos (
+  usuario_id INT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  tipo VARCHAR(4) NOT NULL CHECK (tipo IN ('cv', 'foto')),
+  nombre VARCHAR(120) NOT NULL,
+  mime VARCHAR(40) NOT NULL,
+  datos BYTEA NOT NULL,
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (usuario_id, tipo)
+);

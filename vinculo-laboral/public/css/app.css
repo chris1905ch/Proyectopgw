@@ -166,3 +166,20 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -.01em; }
 .lista-requisitos .cumple .marca { color: var(--verde); }
 .lista-requisitos .falta .marca { color: var(--rojo); }
 .respuesta-empresa { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--linea); }
+
+/* cuadros de diálogo (confirmaciones) */
+.modal { border: 1px solid #c9cfcc; border-top: 4px solid var(--verde); padding: 0; max-width: 440px; width: calc(100% - 32px); background: var(--papel); color: var(--tinta); box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
+.modal::backdrop { background: rgba(34, 48, 44, .55); }
+.modal-caja { padding: 24px; margin: 0; }
+.modal-caja h3 { margin-bottom: .4em; }
+.modal-texto { color: var(--suave); margin-bottom: 1.2em; }
+.modal-acciones { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.boton.rojo { background: var(--rojo); border-color: var(--rojo); }
+.boton.rojo:hover { background: #7d2f1f; }
+
+/* foto de perfil y archivos del candidato */
+.perfil-foto { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.avatar { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; background: var(--verde-claro); border: 1px solid #c9cfcc; display: flex; align-items: center; justify-content: center; font: 700 2rem Charter, Georgia, serif; color: var(--verde); flex: none; }
+.avatar.chico { width: 48px; height: 48px; font-size: 1.1rem; }
+.archivo-actual { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--linea); background: var(--fondo); margin-bottom: 12px; }
+.solo-lectores { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -19,6 +19,7 @@ function manejador(err, req, res, next) {
     return res.status(err.estado).json({ error: err.message, detalles: err.detalles });
   }
   if (err.code === '23505') return res.status(409).json({ error: 'Ya existe un registro con esos datos' });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'El archivo es demasiado grande' });
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'El cuerpo de la solicitud no es JSON válido' });
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor' });

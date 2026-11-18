@@ -536,3 +536,52 @@ describe('Historial, tiempo de respuesta y coincidencia', () => {
     });
   });
 });
+
+describe('Currículum y foto de perfil', () => {
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF');
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+  const subir = (ruta, token, cuerpo, tipo) => request(app).put(ruta).set(con(token)).set('Content-Type', tipo).set('X-Nombre-Archivo', encodeURIComponent('Mi currículum.pdf')).send(cuerpo);
+
+  it('PF-57 El candidato sube su currículum en PDF y lo vuelve a descargar igual', async () => {
+    const r = await subir('/api/candidato/cv', daniela, pdf, 'application/pdf');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.nombre, 'Mi currículum.pdf');
+    const d = await request(app).get('/api/candidato/cv').set(con(daniela)).buffer(true).parse((res, cb) => { const t = []; res.on('data', (c) => t.push(c)); res.on('end', () => cb(null, Buffer.concat(t))); });
+    assert.equal(d.status, 200);
+    assert.match(d.headers['content-type'], /pdf/);
+    assert.deepEqual(d.body, pdf);
+    const info = await request(app).get('/api/candidato/archivos').set(con(daniela));
+    assert.equal(info.body.cv.nombre, 'Mi currículum.pdf');
+    assert.equal(info.body.foto, null);
+  });
+  it('PF-58 Rechaza un currículum que no es PDF aunque diga serlo', async () => {
+    const r = await subir('/api/candidato/cv', daniela, Buffer.from('MZ esto es un ejecutable'), 'application/pdf');
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /PDF/);
+    assert.equal((await subir('/api/candidato/cv', daniela, png, 'image/png')).status, 400);
+  });
+  it('PF-59 Rechaza archivos demasiado grandes', async () => {
+    const grande = Buffer.concat([Buffer.from('%PDF-'), Buffer.alloc(3 * 1024 * 1024 + 10)]);
+    assert.equal((await subir('/api/candidato/cv', daniela, grande, 'application/pdf')).status, 413);
+  });
+  it('PF-60 Sube y elimina la foto de perfil, y solo acepta imágenes', async () => {
+    assert.equal((await subir('/api/candidato/foto', daniela, png, 'image/png')).status, 200);
+    assert.equal((await request(app).get('/api/candidato/foto').set(con(daniela))).status, 200);
+    assert.equal((await subir('/api/candidato/foto', daniela, pdf, 'application/pdf')).status, 400);
+    assert.equal((await request(app).delete('/api/candidato/foto').set(con(daniela))).status, 204);
+    assert.equal((await request(app).get('/api/candidato/foto').set(con(daniela))).status, 404);
+  });
+  it('PF-61 Los archivos exigen sesión de candidato', async () => {
+    assert.equal((await request(app).put('/api/candidato/cv').set('Content-Type', 'application/pdf').send(pdf)).status, 401);
+    assert.equal((await subir('/api/candidato/cv', empresa, pdf, 'application/pdf')).status, 403);
+  });
+  it('PF-62 La empresa descarga el currículum solo de quienes se postularon a sus ofertas', async () => {
+    const aplicantes = await request(app).get('/api/empresa/ofertas/3/postulaciones').set(con(clinica));
+    assert.equal(aplicantes.status, 200);
+    const p = aplicantes.body.postulaciones[0];
+    assert.equal(p.tiene_cv, true);
+    assert.equal((await request(app).get(`/api/empresa/postulaciones/${p.id}/cv`).set(con(clinica))).status, 200);
+    assert.equal((await request(app).get(`/api/empresa/postulaciones/${p.id}/cv`).set(con(empresa))).status, 404);
+    assert.equal((await request(app).get(`/api/empresa/postulaciones/${p.id}/foto`).set(con(clinica))).status, 404);
+  });
+});

@@ -133,3 +133,76 @@ function tarjetaOferta(o) {
     <div style="text-align:right"><span class="etiqueta">${esc(o.tipo_contrato)}</span>
       <div class="pequeno suave" style="margin-top:6px">${esc(o.modalidad)} · ${fecha(o.creado_en)}</div></div></div>`;
 }
+
+// Sube un archivo como cuerpo binario (currículum o foto)
+async function subirArchivo(ruta, archivo, tipoMime) {
+  const resp = await fetch('/api' + ruta, {
+    method: 'PUT',
+    headers: { 'Content-Type': tipoMime || archivo.type || 'application/octet-stream', 'X-Nombre-Archivo': encodeURIComponent(archivo.name || 'archivo'), Authorization: 'Bearer ' + Sesion.token() },
+    body: archivo,
+  });
+  const datos = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(datos.error || 'No se pudo subir el archivo');
+  return datos;
+}
+
+// Descarga un archivo protegido por sesión y devuelve { blob, nombre }
+async function bajarArchivo(ruta) {
+  const resp = await fetch('/api' + ruta, { headers: { Authorization: 'Bearer ' + Sesion.token() } });
+  if (!resp.ok) {
+    const datos = await resp.json().catch(() => ({}));
+    throw new Error(datos.error || 'No se pudo obtener el archivo');
+  }
+  const cab = resp.headers.get('Content-Disposition') || '';
+  const m = /filename\*=UTF-8''([^;]+)/.exec(cab);
+  return { blob: await resp.blob(), nombre: m ? decodeURIComponent(m[1]) : 'archivo' };
+}
+
+async function guardarComo(ruta) {
+  const { blob, nombre } = await bajarArchivo(ruta);
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(blob);
+  enlace.download = nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+}
+
+const tamanoLegible = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+
+// Cuadros de diálogo propios, en lugar de confirm() y prompt() del navegador.
+// confirmar() devuelve true o false; pedirTexto() devuelve el texto o null si se cancela.
+function dialogo({ titulo, texto, aceptar = 'Aceptar', cancelar = 'Cancelar', peligro = false, campo = null }) {
+  return new Promise((resolver) => {
+    const d = document.createElement('dialog');
+    d.className = 'modal';
+    d.innerHTML = `<form method="dialog" class="modal-caja">
+      <h3 id="modal-titulo">${esc(titulo)}</h3>
+      ${texto ? `<p class="modal-texto">${esc(texto)}</p>` : ''}
+      ${campo ? `<div class="campo"><label for="modal-campo">${esc(campo.etiqueta)}</label><textarea id="modal-campo" maxlength="300" rows="3"></textarea><span class="error-campo" id="modal-error" hidden>${esc(campo.error || 'Este dato es obligatorio')}</span></div>` : ''}
+      <div class="modal-acciones">
+        <button type="button" class="boton sec" data-accion="cancelar">${esc(cancelar)}</button>
+        <button type="submit" class="boton ${peligro ? 'rojo' : ''}" data-accion="aceptar">${esc(aceptar)}</button>
+      </div></form>`;
+    d.setAttribute('aria-labelledby', 'modal-titulo');
+    document.body.appendChild(d);
+    let resultado = campo ? null : false;
+    const cerrar = () => d.close();
+    d.querySelector('[data-accion=cancelar]').addEventListener('click', cerrar);
+    d.querySelector('form').addEventListener('submit', (e) => {
+      if (campo) {
+        const v = d.querySelector('#modal-campo').value.trim();
+        if (!v) { e.preventDefault(); d.querySelector('#modal-error').hidden = false; d.querySelector('#modal-campo').focus(); return; }
+        resultado = v;
+      } else resultado = true;
+    });
+    // clic fuera de la caja = cancelar
+    d.addEventListener('click', (e) => { if (e.target === d) cerrar(); });
+    d.addEventListener('close', () => { d.remove(); resolver(resultado); });
+    d.showModal();
+    (campo ? d.querySelector('#modal-campo') : d.querySelector('[data-accion=cancelar]')).focus();
+  });
+}
+const confirmar = (titulo, texto, opciones = {}) => dialogo({ titulo, texto, ...opciones });
+const pedirTexto = (titulo, etiqueta, opciones = {}) => dialogo({ titulo, campo: { etiqueta }, aceptar: 'Enviar', ...opciones });

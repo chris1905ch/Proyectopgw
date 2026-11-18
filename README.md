@@ -21,4 +21,6 @@ Todo el código está en la carpeta `vinculo-laboral`. Ahí mismo se encuentra e
 - Dashboards para candidatos y para empresas.
 - Panel administrativo con usuarios, empresas, ofertas y estadísticas.
 - Página de recursos y consejos de carrera.
-- 50 pruebas automáticas, funcionales y de integración (`npm test`).
+- Subida de currículum (PDF) y foto de perfil para candidatos, con descarga del currículum desde la lista de aplicantes de la empresa.
+- Cuadros de diálogo propios para confirmar acciones.
+- 71 pruebas automáticas, funcionales y de integración (`npm test`).

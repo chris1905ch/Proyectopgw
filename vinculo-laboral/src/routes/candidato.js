@@ -5,6 +5,7 @@ const { Validador, idParam, DEPARTAMENTOS } = require('../middleware/validar');
 const { requiereSesion, requiereRol } = require('../middleware/auth');
 const postulaciones = require('../postulaciones');
 const { evaluar } = require('../coincidencia');
+const archivos = require('../archivos');
 
 const router = express.Router();
 router.use(requiereSesion, requiereRol('candidato'));
@@ -30,6 +31,15 @@ router.put('/perfil', asincrono(async (req, res) => {
     [nombre, apellidos, telefono, ubicacion, resumen, habilidades, req.usuario.id]);
   res.json(rows[0]);
 }));
+
+// Currículum (PDF) y foto de perfil
+router.get('/archivos', asincrono(async (req, res) => res.json(await archivos.info(req.usuario.id))));
+router.put('/cv', archivos.cuerpoBinario('cv'), asincrono((req, res) => archivos.guardar(req, res, 'cv')));
+router.get('/cv', asincrono((req, res) => archivos.enviar(res, req.usuario.id, 'cv', { descargar: true })));
+router.delete('/cv', asincrono((req, res) => archivos.quitar(req, res, 'cv')));
+router.put('/foto', archivos.cuerpoBinario('foto'), asincrono((req, res) => archivos.guardar(req, res, 'foto')));
+router.get('/foto', asincrono((req, res) => archivos.enviar(res, req.usuario.id, 'foto')));
+router.delete('/foto', asincrono((req, res) => archivos.quitar(req, res, 'foto')));
 
 router.get('/postulaciones', asincrono(async (req, res) => {
   const { rows } = await db.query(

@@ -42,11 +42,11 @@ if (montar({ rol: "empresa", activo: "ofertas" })) {
     if (!b) return;
     try {
       if (b.dataset.eliminar) {
-        if (!confirm("Al eliminar la oferta también se borran sus postulaciones. ¿Desea continuar?")) return;
+        if (!(await confirmar("¿Eliminar esta oferta?", "También se borrarán todas sus postulaciones. Esta acción no se puede deshacer.", { aceptar: "Eliminar", peligro: true }))) return;
         await api("/empresa/ofertas/" + b.dataset.id, { metodo: "DELETE" });
         mensaje("#mensaje", "ok", "La oferta fue eliminada.");
       } else {
-        if (b.dataset.estado === "cancelada" && !confirm("Una oferta cancelada no se puede reabrir. ¿Desea cancelarla?")) return;
+        if (b.dataset.estado === "cancelada" && !(await confirmar("¿Cancelar esta oferta?", "Una oferta cancelada no se puede reabrir.", { aceptar: "Cancelar oferta", cancelar: "Volver", peligro: true }))) return;
         await api(`/empresa/ofertas/${b.dataset.id}/estado`, { metodo: "PATCH", cuerpo: { estado: b.dataset.estado } });
         mensaje("#mensaje", "ok", "El estado de la oferta se actualizó.");
       }

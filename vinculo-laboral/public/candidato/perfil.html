@@ -14,6 +14,31 @@
 <div class="centrado ancho">
   <h1>Mi perfil</h1>
   <div id="mensaje"></div>
+  <section class="tarjeta" style="margin-bottom:24px">
+    <h3>Foto de perfil</h3>
+    <div id="mensaje-foto"></div>
+    <div class="perfil-foto">
+      <div id="avatar" class="avatar" aria-hidden="true"></div>
+      <div>
+        <div class="acciones">
+          <button type="button" class="boton sec chico" id="elegir-foto">Subir foto</button>
+          <button type="button" class="boton peligro chico" id="quitar-foto" hidden>Quitar foto</button>
+        </div>
+        <input type="file" id="archivo-foto" accept="image/jpeg,image/png,image/webp" class="solo-lectores" tabindex="-1">
+        <p class="pequeno suave" style="margin:8px 0 0">JPG, PNG o WEBP. La imagen se ajusta automáticamente a un tamaño pequeño.</p>
+      </div>
+    </div>
+  </section>
+  <section class="tarjeta" style="margin-bottom:24px">
+    <h3>Currículum</h3>
+    <div id="mensaje-cv"></div>
+    <div id="cv-actual"></div>
+    <div class="acciones">
+      <button type="button" class="boton sec chico" id="elegir-cv">Subir currículum</button>
+    </div>
+    <input type="file" id="archivo-cv" accept="application/pdf,.pdf" class="solo-lectores" tabindex="-1">
+    <p class="pequeno suave" style="margin:8px 0 0">Solo archivos PDF, de hasta 3 MB. Las empresas a las que se postule podrán descargarlo.</p>
+  </section>
   <form id="form" class="tarjeta" novalidate>
     <div class="fila">
       <div class="campo"><label for="nombre">Nombre</label><input id="nombre" name="nombre" required></div>
@@ -52,6 +77,89 @@ if (montar({ rol: "candidato", activo: "perfil" })) (async () => {
   llenarSelect(form.ubicacion, cat.departamentos, "Sin indicar");
   const p = await api("/candidato/perfil");
   Object.keys(p).forEach((k) => { if (form.elements[k]) form.elements[k].value = p[k] ?? ""; });
+
+  // ---- foto de perfil y currículum ----
+  const inicial = () => ((Sesion.usuario().nombre || "?")[0] || "?").toUpperCase();
+  let urlFoto = null;
+  function pintarAvatar(blob) {
+    const av = document.getElementById("avatar");
+    if (urlFoto) URL.revokeObjectURL(urlFoto);
+    urlFoto = blob ? URL.createObjectURL(blob) : null;
+    av.innerHTML = urlFoto ? `<img src="${urlFoto}" alt="Su foto de perfil" class="avatar">` : esc(inicial());
+    av.className = urlFoto ? "" : "avatar";
+    document.getElementById("quitar-foto").hidden = !urlFoto;
+    document.getElementById("elegir-foto").textContent = urlFoto ? "Cambiar foto" : "Subir foto";
+  }
+  function pintarCv(info) {
+    document.getElementById("cv-actual").innerHTML = info
+      ? `<div class="archivo-actual"><div><b>${esc(info.nombre)}</b><br><span class="pequeno suave">${tamanoLegible(info.tamano)} · subido el ${fecha(info.actualizado_en)}</span></div>
+          <div class="acciones"><button type="button" class="boton sec chico" id="bajar-cv">Descargar</button><button type="button" class="boton peligro chico" id="quitar-cv">Eliminar</button></div></div>`
+      : `<p class="pequeno suave">Todavía no ha subido su currículum.</p>`;
+    document.getElementById("elegir-cv").textContent = info ? "Reemplazar currículum" : "Subir currículum";
+  }
+  // Reduce la imagen a un máximo de 400 px y la guarda como JPG
+  function reducirImagen(archivo) {
+    return new Promise((ok, fallo) => {
+      const url = URL.createObjectURL(archivo);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const lado = Math.min(img.width, img.height);
+        const salida = Math.min(400, lado);
+        const c = document.createElement("canvas");
+        c.width = c.height = salida;
+        c.getContext("2d").drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, salida, salida);
+        c.toBlob((b) => (b ? ok(b) : fallo(new Error("No se pudo procesar la imagen"))), "image/jpeg", 0.88);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); fallo(new Error("El archivo no es una imagen válida")); };
+      img.src = url;
+    });
+  }
+  async function cargarArchivos() {
+    const info = await api("/candidato/archivos");
+    pintarCv(info.cv);
+    if (info.foto) { try { pintarAvatar((await bajarArchivo("/candidato/foto")).blob); } catch (e) { pintarAvatar(null); } } else pintarAvatar(null);
+  }
+  document.getElementById("elegir-foto").addEventListener("click", () => document.getElementById("archivo-foto").click());
+  document.getElementById("archivo-foto").addEventListener("change", async (e) => {
+    const archivo = e.target.files[0];
+    e.target.value = "";
+    if (!archivo) return;
+    try {
+      if (!/^image\/(jpeg|png|webp)$/.test(archivo.type)) throw new Error("La foto debe ser una imagen JPG, PNG o WEBP");
+      const reducida = await reducirImagen(archivo);
+      await subirArchivo("/candidato/foto", reducida, "image/jpeg");
+      pintarAvatar(reducida);
+      mensaje("#mensaje-foto", "ok", "Su foto de perfil se actualizó.");
+    } catch (err) { mensaje("#mensaje-foto", "error", err.message); }
+  });
+  document.getElementById("quitar-foto").addEventListener("click", async () => {
+    if (!(await confirmar("¿Quitar la foto de perfil?", "Se mostrará la inicial de su nombre en su lugar.", { aceptar: "Quitar", peligro: true }))) return;
+    try { await api("/candidato/foto", { metodo: "DELETE" }); pintarAvatar(null); mensaje("#mensaje-foto", "ok", "La foto fue eliminada."); }
+    catch (err) { mensaje("#mensaje-foto", "error", err.message); }
+  });
+  document.getElementById("elegir-cv").addEventListener("click", () => document.getElementById("archivo-cv").click());
+  document.getElementById("archivo-cv").addEventListener("change", async (e) => {
+    const archivo = e.target.files[0];
+    e.target.value = "";
+    if (!archivo) return;
+    try {
+      if (archivo.size > 3 * 1024 * 1024) throw new Error("El currículum no puede pesar más de 3 MB");
+      await subirArchivo("/candidato/cv", archivo, "application/pdf");
+      mensaje("#mensaje-cv", "ok", "Su currículum se guardó correctamente.");
+      pintarCv((await api("/candidato/archivos")).cv);
+    } catch (err) { mensaje("#mensaje-cv", "error", err.message); }
+  });
+  document.getElementById("cv-actual").addEventListener("click", async (e) => {
+    if (e.target.closest("#bajar-cv")) {
+      try { await guardarComo("/candidato/cv"); } catch (err) { mensaje("#mensaje-cv", "error", err.message); }
+    } else if (e.target.closest("#quitar-cv")) {
+      if (!(await confirmar("¿Eliminar el currículum?", "Las empresas ya no podrán descargarlo hasta que suba uno nuevo.", { aceptar: "Eliminar", peligro: true }))) return;
+      try { await api("/candidato/cv", { metodo: "DELETE" }); pintarCv(null); mensaje("#mensaje-cv", "ok", "El currículum fue eliminado."); }
+      catch (err) { mensaje("#mensaje-cv", "error", err.message); }
+    }
+  });
+  cargarArchivos().catch((err) => mensaje("#mensaje-cv", "error", err.message));
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     try {

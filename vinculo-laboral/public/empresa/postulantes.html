@@ -29,19 +29,34 @@ if (montar({ rol: "empresa", activo: "ofertas" })) {
     document.getElementById("lista").innerHTML = r.postulaciones.length
       ? r.postulaciones.map((p) => `<article class="tarjeta" style="margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap">
+            <div style="display:flex;gap:14px;align-items:flex-start"><div class="avatar chico" data-foto="${p.tiene_foto ? p.id : ""}">${esc((p.nombre || "?")[0].toUpperCase())}</div>
             <div><h3 style="margin-bottom:2px">${esc(p.nombre)} ${esc(p.apellidos)}</h3>
               <div class="pequeno suave">${esc(p.correo)}${p.telefono ? " · " + esc(p.telefono) : ""}${p.ubicacion ? " · " + esc(p.ubicacion) : ""}</div>
-              <div class="pequeno suave">Se postuló el ${fecha(p.creado_en)}</div></div>
+              <div class="pequeno suave">Se postuló el ${fecha(p.creado_en)}</div></div></div>
             <div>${etiqueta(p.estado)}</div></div>
           ${p.resumen ? `<p class="pre" style="margin:14px 0 0"><b>Perfil:</b> ${esc(p.resumen)}</p>` : ""}
           ${p.mensaje ? `<p class="pre" style="margin:10px 0 0"><b>Mensaje:</b> ${esc(p.mensaje)}</p>` : ""}
           <div class="acciones" style="margin-top:16px">
+            ${p.tiene_cv ? `<button class="boton sec chico" data-cv="${p.id}">Descargar currículum</button>` : `<span class="pequeno suave" style="align-self:center">Sin currículum</span>`}
             ${p.estado === "enviada" ? `<button class="boton sec chico" data-id="${p.id}" data-estado="en_revision">Marcar en revisión</button>` : ""}
             ${p.estado !== "aceptada" ? `<button class="boton chico" data-id="${p.id}" data-estado="aceptada">Aceptar</button>` : ""}
             ${p.estado !== "rechazada" ? `<button class="boton peligro chico" data-id="${p.id}" data-estado="rechazada">Rechazar</button>` : ""}</div></article>`).join("")
       : `<p class="vacio">Esta oferta todavía no tiene aplicantes.</p>`;
+    document.querySelectorAll("[data-foto]").forEach(async (el) => {
+      if (!el.dataset.foto) return;
+      try {
+        const { blob } = await bajarArchivo(`/empresa/postulaciones/${el.dataset.foto}/foto`);
+        el.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="" class="avatar chico">`;
+        el.className = "";
+      } catch (e) { /* se queda la inicial */ }
+    });
   }
   document.getElementById("lista").addEventListener("click", async (e) => {
+    const cv = e.target.closest("button[data-cv]");
+    if (cv) {
+      try { await guardarComo(`/empresa/postulaciones/${cv.dataset.cv}/cv`); } catch (err) { mensaje("#mensaje", "error", err.message); }
+      return;
+    }
     const b = e.target.closest("button[data-id]");
     if (!b) return;
     try { await api("/empresa/postulaciones/" + b.dataset.id, { metodo: "PATCH", cuerpo: { estado: b.dataset.estado } }); cargar(); }
