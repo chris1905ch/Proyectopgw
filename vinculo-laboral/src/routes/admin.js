@@ -24,8 +24,8 @@ router.get('/resumen', asincrono(async (req, res) => {
   res.json({ ...rows[0], ofertasPorDepartamento: porDepto, postulacionesPorEstado: porEstado });
 }));
 
-router.get('/usuarios', asincrono(async (req, res) => {
-  const { q, rol, estado } = req.query;
+// Busca usuarios con los filtros del panel (se usa en el listado y en la exportación)
+async function buscarUsuarios({ q, rol, estado }, limite) {
   const cond = [];
   const params = [];
   if (q && q.trim()) {
@@ -36,8 +36,33 @@ router.get('/usuarios', asincrono(async (req, res) => {
   if (estado) { params.push(estado); cond.push(`estado = $${params.length}`); }
   const { rows } = await db.query(
     `SELECT id, nombre, apellidos, correo, rol, estado, creado_en FROM usuarios
-      ${cond.length ? 'WHERE ' + cond.join(' AND ') : ''} ORDER BY creado_en DESC LIMIT 200`, params);
-  res.json(rows);
+      ${cond.length ? 'WHERE ' + cond.join(' AND ') : ''} ORDER BY creado_en DESC LIMIT ${limite}`, params);
+  return rows;
+}
+
+router.get('/usuarios', asincrono(async (req, res) => {
+  res.json(await buscarUsuarios(req.query, 200));
+}));
+
+// Un valor de CSV se encierra entre comillas si trae comas, comillas o saltos de línea.
+// Si empieza con =, +, - o @ se le antepone un apóstrofo para que Excel no lo trate como fórmula.
+function celdaCsv(valor) {
+  let t = valor instanceof Date ? valor.toISOString() : String(valor ?? '');
+  if (/^[=+\-@]/.test(t)) t = "'" + t;
+  return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+router.get('/usuarios/exportar', asincrono(async (req, res) => {
+  const usuarios = await buscarUsuarios(req.query, 5000);
+  const columnas = ['id', 'nombre', 'apellidos', 'correo', 'rol', 'estado', 'creado_en'];
+  const lineas = [columnas.join(',')];
+  usuarios.forEach((u) => lineas.push(columnas.map((c) => celdaCsv(u[c])).join(',')));
+  res.set({
+    'Content-Type': 'text/csv; charset=utf-8',
+    'Content-Disposition': 'attachment; filename="usuarios.csv"',
+  });
+  // El carácter \ufeff al inicio permite que Excel lea bien las tildes
+  res.send('\ufeff' + lineas.join('\r\n') + '\r\n');
 }));
 
 router.patch('/usuarios/:id/estado', asincrono(async (req, res) => {
