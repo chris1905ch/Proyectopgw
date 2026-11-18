@@ -91,8 +91,8 @@ async function catalogos() {
 const RUTAS_ROL = { candidato: '/candidato/panel.html', empresa: '/empresa/panel.html', admin: '/admin/panel.html' };
 
 const MENUS = {
-  publico: [['/empleos.html', 'Buscar empleo', 'empleos'], ['/registro.html?tipo=empresa', 'Para empresas', 'empresas']],
-  candidato: [['/candidato/panel.html', 'Mi panel', 'panel'], ['/empleos.html', 'Buscar empleo', 'empleos'], ['/candidato/postulaciones.html', 'Mis postulaciones', 'postulaciones'], ['/candidato/perfil.html', 'Mi perfil', 'perfil']],
+  publico: [['/empleos.html', 'Buscar empleo', 'empleos'], ['/recursos.html', 'Recursos', 'recursos'], ['/registro.html?tipo=empresa', 'Para empresas', 'empresas']],
+  candidato: [['/candidato/panel.html', 'Mi panel', 'panel'], ['/empleos.html', 'Buscar empleo', 'empleos'], ['/candidato/postulaciones.html', 'Mis postulaciones', 'postulaciones'], ['/recursos.html', 'Recursos', 'recursos'], ['/candidato/perfil.html', 'Mi perfil', 'perfil']],
   empresa: [['/empresa/panel.html', 'Panel', 'panel'], ['/empresa/ofertas.html', 'Mis ofertas', 'ofertas'], ['/empresa/perfil.html', 'Datos de la empresa', 'perfil']],
   admin: [['/admin/panel.html', 'Administración', 'panel'], ['/empleos.html', 'Ver portal', 'empleos']],
 };
