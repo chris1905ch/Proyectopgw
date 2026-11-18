@@ -98,7 +98,8 @@ td { padding: 11px 10px; border-bottom: 1px solid #e3e8e5; vertical-align: middl
 @media (max-width: 760px) {
   .buscador, .resultados, .detalle { grid-template-columns: 1fr; }
   .cabecera .contenedor { flex-wrap: wrap; gap: 8px 20px; padding-top: 10px; padding-bottom: 10px; }
-  .menu { flex-wrap: wrap; order: 3; width: 100%; } .menu a { padding: 6px 0; }
+  .menu { flex: 1 1 100%; flex-wrap: wrap; order: 3; gap: 0 18px; } .menu a { padding: 8px 0; }
+  .sesion { margin-left: auto; }
   .fila-barra { grid-template-columns: 110px 1fr 30px; }
   table { display: block; overflow-x: auto; }
 }
@@ -128,3 +129,16 @@ h1, h2, h3 { font-weight: 700; letter-spacing: -.01em; }
 .pasos div { border-top: 1px solid var(--tinta); padding-top: 14px; }
 .pestanas button.activo { border-bottom-width: 3px; }
 @media (max-width: 760px) { .hero { grid-template-columns: 1fr; gap: 20px; } .hero h1 { font-size: 2.4rem; } .kpi { border-right: 0; border-bottom: 1px solid var(--linea); padding-left: 0; } }
+
+/* recursos y consejos de carrera */
+.recursos { max-width: 760px; }
+.recurso { border-bottom: 1px solid var(--linea); padding: 18px 0; }
+.recurso summary { list-style: none; cursor: pointer; display: grid; gap: 4px; }
+.recurso summary::-webkit-details-marker { display: none; }
+.recurso-titulo { font: 700 1.25rem Charter, "Bitstream Charter", Georgia, serif; }
+.recurso summary:hover .recurso-titulo { color: var(--verde); }
+.recurso-meta { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--suave); }
+.recurso-resumen { color: var(--suave); }
+.recurso-cuerpo { margin-top: 14px; padding-left: 18px; border-left: 3px solid var(--tinta); }
+.recurso-cuerpo p { max-width: 62ch; }
+.pestanas { flex-wrap: wrap; }
